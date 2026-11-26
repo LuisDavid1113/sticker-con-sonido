@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sticker con sonido</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#121212">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: juguetón y directo, una herramienta de bolsillo
+   IDEA: un sticker de WhatsApp sobre su tablero, con la onda de audio como cinta
+   PICTURE: el lienzo cuadrado del sticker, grande, arriba
+   COLOUR and TYPE: tinta casi negra, amarillo emoji dominante, verde chat de acento; Baloo 2 + Nunito
+   LAYOUT: una columna: título, lienzo, audio, ajustes, exportar */
+:root{color-scheme:light dark;--bg:light-dark(#f6f3ea,#121212);--card:light-dark(#fff,#1d1d1f);--ink:light-dark(#17171a,#f3f1ea);--mute:light-dark(#6b6a66,#a3a19a);--line:light-dark(#e4e0d4,#2e2e31);--y:#ffd23f;--g:#25d366;--gd:#128c4a}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Nunito,system-ui,sans-serif;overflow-x:clip}
+main{max-width:520px;margin:0 auto;padding:20px 16px 48px;display:grid;gap:16px}
+h1{font:800 34px/1.05 "Baloo 2",system-ui,sans-serif;margin:0;text-wrap:balance}
+h1 span{background:var(--y);color:#17171a;padding:0 8px;border-radius:10px}
+.sub{margin:4px 0 0;color:var(--mute);font-size:15px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px}
+.stage{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;background:repeating-conic-gradient(light-dark(#e9e6dc,#26262a) 0 25%,transparent 0 50%) 0 0/24px 24px}
+.stage canvas{width:100%;height:100%;display:block}
+.drop{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:6px;cursor:pointer;padding:20px}
+.drop b{font:800 22px "Baloo 2",sans-serif}.drop small{color:var(--mute)}
+.plus{width:64px;height:64px;margin:0 auto;border-radius:50%;background:var(--y);color:#17171a;display:grid;place-content:center;font:800 40px/1 "Baloo 2";box-shadow:0 6px 0 #d9a900}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lab{font-weight:700;font-size:14px;color:var(--mute);margin:0 0 8px}
+button,.btn{font:700 16px Nunito,sans-serif;min-height:44px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+button:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid var(--g);outline-offset:2px}
+button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.main{width:100%;justify-content:center;background:var(--g);color:#062b15;border:0;font-size:18px;min-height:56px;box-shadow:0 5px 0 var(--gd)}
+.main:active{transform:translateY(3px);box-shadow:0 2px 0 var(--gd)}
+.wave{position:relative;height:96px;border-radius:12px;background:light-dark(#f1eee4,#151517);touch-action:none;overflow:hidden}
+.wave canvas{position:absolute;inset:0;width:100%;height:100%}
+.win{position:absolute;top:0;bottom:0;border:3px solid var(--g);border-radius:10px;background:color-mix(in srgb,var(--g) 18%,transparent);cursor:grab}
+.time{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700}
+.empty{color:var(--mute);font-size:15px;padding:30px 8px;text-align:center}
+input[type=color]{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;padding:2px;background:none}
+input[type=range]{flex:1;accent-color:var(--g)}
+.out video{width:100%;border-radius:14px;background:#000;display:block}
+.note{font-size:13px;color:var(--mute);margin:8px 0 0}
+.bar{height:8px;border-radius:8px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--g)}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.main:active{transform:none}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Sticker <span>con sonido</span></h1>
+<p class="sub">Imagen o GIF + un pedazo de audio → video .mp4 para WhatsApp. Todo se procesa en tu celular, nada se sube.</p>
+</header>
+
+<section class="card">
+<div class="stage" id="stage">
+<canvas id="cv" width="512" height="512"></canvas>
+<label class="drop" id="drop" for="fImg">
+<div class="plus">+</div><b>Pon tu sticker aquí</b><small>PNG, GIF, WebP, JPG o video corto · también puedes pegar</small>
+</label>
+</div>
+<input type="file" id="fImg" accept="image/*,video/*" hidden>
+<div class="row" style="margin-top:12px">
+<label class="btn" for="fImg">Cambiar imagen</label>
+<span style="flex:1"></span>
+<span class="lab" style="margin:0">Fondo</span>
+<button data-bg="#000000" aria-pressed="true">Negro</button>
+<button data-bg="#ffffff" aria-pressed="false">Blanco</button>
+<input type="color" id="bgc" value="#25d366" aria-label="Color de fondo">
+</div>
+<div class="row" style="margin-top:10px"><span class="lab" style="margin:0">Tamaño</span><input type="range" id="zoom" min="40" max="100" value="88" aria-label="Tamaño del sticker"></div>
+</section>
+
+<section class="card">
+<p class="lab">Audio (MP3, M4A, WAV, OGG)</p>
+<input type="file" id="fAud" accept="audio/*,video/*" hidden>
+<div id="noAud" class="empty"><label class="btn" for="fAud">♪ Elegir audio</label><p class="note">Tip: descarga el sonido de myinstants o una nota de voz y elígelo aquí.</p></div>
+<div id="aud" hidden>
+<div class="wave" id="wave"><canvas id="wcv"></canvas><div class="win" id="win"></div></div>
+<div class="row" style="margin-top:10px">
+<button id="play">▶ Escuchar</button>
+<span class="time" id="tlab">0.0s – 0.0s</span>
+<span style="flex:1"></span>
+<button data-d="5" aria-pressed="false">5s</button><button data-d="10" aria-pressed="true">10s</button>
+</div>
+<div class="row" style="margin-top:8px"><label class="btn" for="fAud">Cambiar audio</label><label class="row" style="gap:6px;font-weight:700"><input type="checkbox" id="fade" checked style="width:20px;height:20px;accent-color:var(--g)"> Desvanecer final</label></div>
+</div>
+</section>
+
+<button class="main" id="go" disabled>Crear sticker.mp4</button>
+<div id="prog" hidden><div class="bar"><i id="pbar"></i></div><p class="note">Grabando en tiempo real… no cierres la app.</p></div>
+
+<section class="card out" id="out" hidden>
+<p class="lab">Listo</p>
+<video id="res" controls playsinline loop></video>
+<div class="row" style="margin-top:12px"><button class="main" id="dl">Descargar / Compartir</button></div>
+<p class="note" id="fmt"></p>
+</section>
+</main>
+
+<script>
+{
+const $=s=>document.querySelector(s),cv=$('#cv'),cx=cv.getContext('2d');
+let src=null,bg='#000000',zoom=.88,abuf=null,dur=10,start=0,actx=null,playing=null,blob=null,ext='mp4',rec=false;
+const fmt=t=>t.toFixed(1)+'s';
+
+function draw(){
+  cx.fillStyle=bg;cx.fillRect(0,0,512,512);
+  if(!src)return;
+  const w=src.videoWidth||src.naturalWidth,h=src.videoHeight||src.naturalHeight;if(!w)return;
+  const s=512*zoom/Math.max(w,h),dw=w*s,dh=h*s;
+  cx.drawImage(src,(512-dw)/2,(512-dh)/2,dw,dh);
+}
+(function loop(){draw();requestAnimationFrame(loop)})();
+
+function setImg(file){
+  if(!file)return;
+  const url=URL.createObjectURL(file);
+  if(file.type.startsWith('video')){
+    const v=document.createElement('video');v.src=url;v.muted=true;v.loop=true;v.playsInline=true;v.play().catch(()=>{});src=v;
+  }else{
+    const i=new Image();i.src=url;
+    i.style.cssText='position:fixed;left:-9999px;width:1px;height:1px';document.body.appendChild(i);src=i;
+  }
+  $('#drop').hidden=true;check();
+}
+$('#fImg').onchange=e=>setImg(e.target.files[0]);
+document.addEventListener('paste',e=>{for(const it of e.clipboardData.items){if(it.kind==='file'){const f=it.getAsFile();if(f.type.startsWith('audio'))setAud(f);else setImg(f);break}}});
+$('#stage').ondragover=e=>e.preventDefault();
+$('#stage').ondrop=e=>{e.preventDefault();setImg(e.dataTransfer.files[0])};
+
+document.querySelectorAll('[data-bg]').forEach(b=>b.onclick=()=>{bg=b.dataset.bg;press('[data-bg]',b)});
+$('#bgc').oninput=e=>{bg=e.target.value;press('[data-bg]',null)};
+$('#zoom').oninput=e=>zoom=e.target.value/100;
+function press(sel,b){document.querySelectorAll(sel).forEach(x=>x.setAttribute('aria-pressed',x===b))}
+
+async function setAud(file){
+  if(!file)return;
+  actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  try{abuf=await actx.decodeAudioData(await file.arrayBuffer())}catch(err){$('#noAud .note').textContent='No pude leer ese audio. Prueba con MP3 o WAV.';return}
+  start=0;$('#noAud').hidden=true;$('#aud').hidden=false;wave();place();check();
+}
+$('#fAud').onchange=e=>setAud(e.target.files[0]);
+
+const effDur=()=>abuf?Math.min(dur,abuf.duration):dur;
+function wave(){
+  const c=$('#wcv'),W=c.clientWidth,H=c.clientHeight,r=devicePixelRatio||1;c.width=W*r;c.height=H*r;
+  const g=c.getContext('2d');g.scale(r,r);g.fillStyle=getComputedStyle(document.body).color;g.globalAlpha=.55;
+  const d=abuf.getChannelData(0),n=Math.floor(W/3),step=Math.floor(d.length/n);
+  for(let i=0;i<n;i++){let m=0;for(let j=0;j<step;j+=8)m=Math.max(m,Math.abs(d[i*step+j]||0));const bh=Math.max(2,m*H*.9);g.fillRect(i*3,(H-bh)/2,2,bh)}
+}
+new ResizeObserver(()=>{if(abuf){wave();place()}}).observe($('#wave'));
+function place(){
+  const D=abuf.duration,e=effDur();start=Math.max(0,Math.min(start,D-e));
+  const w=$('#win');w.style.left=start/D*100+'%';w.style.width=e/D*100+'%';
+  $('#tlab').textContent=fmt(start)+' – '+fmt(start+e);
+}
+let drag=null;
+$('#wave').onpointerdown=e=>{
+  if(!abuf)return;const r=$('#wave').getBoundingClientRect(),D=abuf.duration,e2=effDur();
+  const t=(e.clientX-r.left)/r.width*D;
+  if(t<start||t>start+e2){start=t-e2/2;place()}
+  drag={x:e.clientX,s:start,W:r.width};$('#wave').setPointerCapture(e.pointerId);
+};
+$('#wave').onpointermove=e=>{if(!drag)return;start=drag.s+(e.clientX-drag.x)/drag.W*abuf.duration;place()};
+$('#wave').onpointerup=$('#wave').onpointercancel=()=>{if(drag){drag=null;if(playing)preview(true)}};
+document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{dur=+b.dataset.d;press('[data-d]',b);if(abuf)place()});
+
+function srcNode(dest){
+  const s=actx.createBufferSource(),g=actx.createGain();s.buffer=abuf;s.connect(g);g.connect(dest);
+  const e=effDur(),t=actx.currentTime;
+  if($('#fade').checked&&e>1){g.gain.setValueAtTime(1,t+e-.6);g.gain.linearRampToValueAtTime(0,t+e)}
+  s.start(t,start,e);return s;
+}
+function stop(){if(playing){try{playing.stop()}catch(_){}playing=null}$('#play').textContent='▶ Escuchar'}
+function preview(restart){
+  if(playing&&!restart){stop();return}stop();actx.resume();
+  playing=srcNode(actx.destination);$('#play').textContent='■ Parar';
+  const me=playing;me.onended=()=>{if(playing===me)stop()};
+}
+$('#play').onclick=()=>preview(false);
+
+function check(){$('#go').disabled=!(src&&abuf)||rec}
+
+function pickType(){
+  const list=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1,mp4a','video/mp4','video/webm;codecs=vp8,opus','video/webm'];
+  return list.find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t));
+}
+$('#go').onclick=async()=>{
+  const type=pickType();
+  if(!type||!cv.captureStream){alert0('Tu navegador no puede grabar video. Usa Chrome actualizado.');return}
+  stop();await actx.resume();rec=true;check();$('#out').hidden=true;$('#prog').hidden=false;
+  if(src.play)src.currentTime=0;
+  const dest=actx.createMediaStreamDestination(),vs=cv.captureStream(30);
+  const ms=new MediaStream([...vs.getVideoTracks(),...dest.stream.getAudioTracks()]);
+  const mr=new MediaRecorder(ms,{mimeType:type,videoBitsPerSecond:2500000,audioBitsPerSecond:128000}),chunks=[];
+  mr.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  const e=effDur(),t0=performance.now();
+  const tick=setInterval(()=>$('#pbar').style.width=Math.min(100,(performance.now()-t0)/(e*1000)*100)+'%',100);
+  mr.onstop=()=>{
+    clearInterval(tick);ms.getTracks().forEach(t=>t.stop());
+    ext=type.includes('mp4')?'mp4':'webm';blob=new Blob(chunks,{type:type.split(';')[0]});
+    $('#res').src=URL.createObjectURL(blob);$('#prog').hidden=true;$('#out').hidden=false;rec=false;check();
+    $('#fmt').textContent=ext==='mp4'?'Formato MP4 (H.264 + AAC). En WhatsApp: abre el chat → stickers → crear, o envíalo como video.':'Tu navegador solo grabó WebM. Abre la app en Chrome actualizado para obtener MP4.';
+    $('#out').scrollIntoView({behavior:'smooth'});
+  };
+  mr.start(250);srcNode(dest);setTimeout(()=>mr.state!=='inactive'&&mr.stop(),e*1000+150);
+};
+
+let dl=null;setTimeout(async()=>{try{dl=window.claude&&await window.claude.use('downloads')}catch(_){}},0);
+$('#dl').onclick=async()=>{
+  if(!blob)return;const name='sticker.'+ext;
+  const C=window.Capacitor;
+  if(C&&C.isNativePlatform&&C.isNativePlatform()){
+    try{
+      const b64=await new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=ko;r.readAsDataURL(blob)});
+      const {Filesystem,Share}=C.Plugins;
+      const f=await Filesystem.writeFile({path:'sticker_'+Date.now()+'.'+ext,data:b64,directory:'CACHE'});
+      await Share.share({title:'Sticker con sonido',files:[f.uri]});
+      return;
+    }catch(err){$('#fmt').textContent='No se pudo compartir: '+(err.message||err);return}
+  }
+  if(dl){try{await dl.save({filename:name,data:blob});return}catch(_){}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  $('#fmt').textContent='Si no se descargó, mantén presionado el video y elige “Descargar video”.';
+};
+function alert0(m){$('#fmt').textContent=m;$('#out').hidden=false}
+}
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
