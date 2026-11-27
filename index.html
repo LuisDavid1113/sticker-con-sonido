@@ -48,6 +48,9 @@ input[type=range]{flex:1;accent-color:var(--g)}
 .out video{width:100%;border-radius:14px;background:#000;display:block}
 .note{font-size:13px;color:var(--mute);margin:8px 0 0}
 .bar{height:8px;border-radius:8px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--g)}
+.fx{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.fx button{justify-content:center;font-size:14px;padding:0 8px}
+#mic.rec{background:#e5484d;color:#fff;border-color:#e5484d}
 [hidden]{display:none!important}
 @media(prefers-reduced-motion:reduce){.main:active{transform:none}}
 </style>
@@ -81,8 +84,11 @@ input[type=range]{flex:1;accent-color:var(--g)}
 <section class="card">
 <p class="lab">Audio (MP3, M4A, WAV, OGG)</p>
 <input type="file" id="fAud" accept="audio/*,video/*" hidden>
-<div id="noAud" class="empty"><label class="btn" for="fAud">♪ Elegir audio</label><p class="note">Tip: descarga el sonido de myinstants o una nota de voz y elígelo aquí.</p></div>
-<div id="aud" hidden>
+<div class="row"><label class="btn" for="fAud">♪ Subir audio o video</label><button id="mic">● Grabar voz</button></div>
+<p class="note" id="micst">También sirve un video: se le saca el audio.</p>
+<p class="lab" style="margin-top:14px">Efectos listos</p>
+<div class="fx" id="fx"></div>
+<div id="aud" hidden style="margin-top:14px">
 <div class="wave" id="wave"><canvas id="wcv"></canvas><div class="win" id="win"></div></div>
 <div class="row" style="margin-top:10px">
 <button id="play">▶ Escuchar</button>
@@ -90,7 +96,7 @@ input[type=range]{flex:1;accent-color:var(--g)}
 <span style="flex:1"></span>
 <button data-d="5" aria-pressed="false">5s</button><button data-d="10" aria-pressed="true">10s</button>
 </div>
-<div class="row" style="margin-top:8px"><label class="btn" for="fAud">Cambiar audio</label><label class="row" style="gap:6px;font-weight:700"><input type="checkbox" id="fade" checked style="width:20px;height:20px;accent-color:var(--g)"> Desvanecer final</label></div>
+<div class="row" style="margin-top:8px"><label class="row" style="gap:6px;font-weight:700"><input type="checkbox" id="fade" checked style="width:20px;height:20px;accent-color:var(--g)"> Desvanecer final</label></div>
 </div>
 </section>
 
@@ -144,9 +150,47 @@ function press(sel,b){document.querySelectorAll(sel).forEach(x=>x.setAttribute('
 async function setAud(file){
   if(!file)return;
   actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-  try{abuf=await actx.decodeAudioData(await file.arrayBuffer())}catch(err){$('#noAud .note').textContent='No pude leer ese audio. Prueba con MP3 o WAV.';return}
-  start=0;$('#noAud').hidden=true;$('#aud').hidden=false;wave();place();check();
+  try{setBuf(await actx.decodeAudioData(await file.arrayBuffer()))}catch(err){$('#micst').textContent='No pude leer ese archivo. Prueba con MP3, WAV o un video MP4.'}
 }
+function setBuf(b){stop();abuf=b;start=0;$('#aud').hidden=false;wave();place();check()}
+
+/* ---- efectos generados (sin archivos) ---- */
+const SR=44100;
+async function synth(sec,fn){const o=new OfflineAudioContext(1,Math.ceil(SR*sec),SR);fn(o,o.destination);return o.startRendering()}
+function osc(o,d,type,t0,t1,f0,f1,vol){const s=o.createOscillator(),g=o.createGain();s.type=type;s.frequency.setValueAtTime(f0,t0);if(f1)s.frequency.exponentialRampToValueAtTime(f1,t1);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.01);g.gain.setValueAtTime(vol,Math.max(t0+.01,t1-.06));g.gain.linearRampToValueAtTime(0,t1);s.connect(g);g.connect(d);s.start(t0);s.stop(t1);return s}
+function noise(o,d,t0,t1,vol,hp){const n=Math.ceil(SR*(t1-t0)),b=o.createBuffer(1,n,SR),c=b.getChannelData(0);for(let i=0;i<n;i++)c[i]=Math.random()*2-1;const s=o.createBufferSource(),f=o.createBiquadFilter(),g=o.createGain();s.buffer=b;f.type='highpass';f.frequency.value=hp||1000;g.gain.setValueAtTime(vol,t0);g.gain.exponentialRampToValueAtTime(.001,t1);s.connect(f);f.connect(g);g.connect(d);s.start(t0)}
+const FX={
+ 'Corneta':o=>synth(2.2,(o,d)=>{for(const t of[0,.45,.9])[0,4,7].forEach(k=>osc(o,d,'sawtooth',t,t+(t>.8?1.2:.35),311*2**(k/12),0,.12))}),
+ 'Ba dum tss':o=>synth(1.6,(o,d)=>{osc(o,d,'sine',0,.25,180,60,.8);osc(o,d,'sine',.22,.47,180,60,.8);noise(o,d,.5,1.6,.6,6000)}),
+ 'Trombón triste':o=>synth(3,(o,d)=>{[[0,392],[.55,370],[1.1,349]].forEach(([t,f])=>osc(o,d,'sawtooth',t,t+.5,f,0,.25));const s=osc(o,d,'sawtooth',1.65,2.9,330,0,.25),l=o.createOscillator(),lg=o.createGain();l.frequency.value=6;lg.gain.value=12;l.connect(lg);lg.connect(s.frequency);l.start(1.65);l.stop(2.9)}),
+ 'Boing':o=>synth(1,(o,d)=>{const s=osc(o,d,'sine',0,.9,120,0,.7),l=o.createOscillator(),lg=o.createGain();l.frequency.setValueAtTime(12,0);l.frequency.linearRampToValueAtTime(4,.9);lg.gain.setValueAtTime(90,0);lg.gain.linearRampToValueAtTime(5,.9);l.connect(lg);lg.connect(s.frequency);l.start(0);l.stop(.9)}),
+ 'Sirena':o=>synth(3,(o,d)=>{const s=osc(o,d,'square',0,3,700,0,.12),l=o.createOscillator(),lg=o.createGain();l.frequency.value=1.5;lg.gain.value=250;l.connect(lg);lg.connect(s.frequency);l.start(0);l.stop(3)}),
+ 'Moneda':o=>synth(.7,(o,d)=>{osc(o,d,'square',0,.08,988,0,.15);osc(o,d,'square',.08,.65,1319,0,.15)}),
+ 'Láser':o=>synth(.5,(o,d)=>osc(o,d,'sawtooth',0,.45,1800,90,.3)),
+ 'Pop':o=>synth(.3,(o,d)=>osc(o,d,'sine',0,.12,500,1500,.8)),
+ 'Caída':o=>synth(1.6,(o,d)=>{osc(o,d,'sine',0,1.2,1600,120,.35);osc(o,d,'sine',1.2,1.5,70,40,.9);noise(o,d,1.2,1.55,.5,200)}),
+ 'Suspenso':o=>synth(3,(o,d)=>{for(let i=0;i<12;i++)osc(o,d,'triangle',i*.25,i*.25+.2,110*(i%2?1.06:1)*2**(i/12),0,.3)}),
+ 'Tic tac':o=>synth(3,(o,d)=>{for(let i=0;i<6;i++)noise(o,d,i*.5,i*.5+.05,.8,i%2?2500:4000)}),
+ 'Aplausos':o=>synth(3,(o,d)=>{for(let i=0;i<70;i++){const t=Math.random()*2.6;noise(o,d,t,t+.05,.25+Math.random()*.3,800+Math.random()*1500)}})
+};
+$('#fx').innerHTML=Object.keys(FX).map(k=>'<button data-fx="'+k+'">'+k+'</button>').join('');
+$('#fx').onclick=async e=>{const b=e.target.closest('[data-fx]');if(!b)return;
+  actx=actx||new (window.AudioContext||window.webkitAudioContext)();await actx.resume();
+  setBuf(await FX[b.dataset.fx]());press('[data-fx]',b);preview(true)};
+
+/* ---- grabar con micrófono ---- */
+let mrec=null;
+$('#mic').onclick=async()=>{
+  if(mrec){mrec.stop();return}
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true}),ch=[];
+    mrec=new MediaRecorder(st);mrec.ondataavailable=e=>e.data.size&&ch.push(e.data);
+    mrec.onstop=async()=>{st.getTracks().forEach(t=>t.stop());mrec=null;$('#mic').classList.remove('rec');$('#mic').textContent='● Grabar voz';$('#micst').textContent='Grabación lista.';
+      await setAud(new Blob(ch,{type:ch[0]&&ch[0].type}))};
+    mrec.start();$('#mic').classList.add('rec');$('#mic').textContent='■ Parar ('+dur+'s máx)';$('#micst').textContent='Grabando… habla ahora.';
+    setTimeout(()=>mrec&&mrec.state==='recording'&&mrec.stop(),dur*1000);
+  }catch(err){$('#micst').textContent='No hay permiso de micrófono. Actívalo en el navegador y vuelve a intentar.'}
+};
 $('#fAud').onchange=e=>setAud(e.target.files[0]);
 
 const effDur=()=>abuf?Math.min(dur,abuf.duration):dur;
