@@ -94,7 +94,7 @@ input[type=range]{flex:1;accent-color:var(--g)}
 <button id="play">▶ Escuchar</button>
 <span class="time" id="tlab">0.0s – 0.0s</span>
 <span style="flex:1"></span>
-<button data-d="5" aria-pressed="false">5s</button><button data-d="10" aria-pressed="true">10s</button>
+<button data-d="5" aria-pressed="true">5s</button><button data-d="10" aria-pressed="false">10s</button>
 </div>
 <div class="row" style="margin-top:8px"><label class="row" style="gap:6px;font-weight:700"><input type="checkbox" id="fade" checked style="width:20px;height:20px;accent-color:var(--g)"> Desvanecer final</label></div>
 </div>
@@ -114,7 +114,7 @@ input[type=range]{flex:1;accent-color:var(--g)}
 <script>
 {
 const $=s=>document.querySelector(s),cv=$('#cv'),cx=cv.getContext('2d');
-let src=null,bg='#000000',zoom=.88,abuf=null,dur=10,start=0,actx=null,playing=null,blob=null,ext='mp4',rec=false;
+let src=null,bg='#000000',zoom=.88,abuf=null,dur=5,start=0,actx=null,playing=null,blob=null,ext='mp4',rec=false;
 const fmt=t=>t.toFixed(1)+'s';
 
 function draw(){
